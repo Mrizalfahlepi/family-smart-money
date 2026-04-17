@@ -46,9 +46,12 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Gunakan dummy email untuk memuaskan schema SQLite lama yang mewajibkan email
+    const dummyEmail = `${username}@fsm.local`;
+
     const result = db.run(
-      "INSERT INTO users (name, username, password) VALUES (?, ?, ?)",
-      name, username, hashedPassword
+      "INSERT INTO users (name, username, password, email) VALUES (?, ?, ?, ?)",
+      name, username, hashedPassword, dummyEmail
     );
 
     // Otomatis bikin Kategori Bawaan untuk User Baru
