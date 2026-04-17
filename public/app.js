@@ -259,7 +259,7 @@ function setupTelegramUI(user) {
         return;
       }
       try {
-        const res = await apiFetch('/api/auth/link-telegram', {
+        const res = await apiFetch('/auth/link-telegram', {
           method: 'POST',
           body: JSON.stringify({ telegram_chat_id: chatId })
         });
