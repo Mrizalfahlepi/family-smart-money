@@ -1325,13 +1325,10 @@ function initEventListeners() {
         reader.readAsDataURL(file);
         const imageBase64 = await base64Promise;
 
-        const res = await fetch('/api/ai/scan-receipt', {
+        const json = await apiFetch('/ai/scan-receipt', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64, mimeType: file.type })
         });
-        
-        const json = await res.json();
         
         if (json.success && json.data) {
           showToast('Silakan cek keranjang belanja!', 'success');
