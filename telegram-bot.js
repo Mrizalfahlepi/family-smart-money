@@ -74,15 +74,18 @@ module.exports = function startBot() {
         const arrayBuffer = await response.arrayBuffer();
         const base64Img = Buffer.from(arrayBuffer).toString('base64');
         
-        const promptStruk = `Anda adalah kasir AI pembaca resi/struk belanja keuangan keluarga. Ekstrak data struk gambar tersebut dalam format JSON wajib berikut:
+        const promptStruk = `Anda adalah kasir AI analitis pembaca resi/struk belanja keuangan keluarga. Ekstrak data struk gambar tersebut dalam format JSON wajib berikut:
 {
-  "storeName": "Nama Toko (Opsional)",
+  "storeName": "Nama Toko",
   "transactions": [
-    { "type": "expense", "amount": 15000, "description": "Nama Barang 1" },
-    { "type": "expense", "amount": 20000, "description": "Nama Barang 2" }
+    { "type": "expense", "amount": 52500, "description": "Sania 1LT (3x)" },
+    { "type": "expense", "amount": 30000, "description": "Sedaap Goreng (10x)" }
   ]
 }
-Aturan: Semua item barang yang dibeli otomatis berstatus type="expense". amount wajib ANGKA MURNI (integer dilarang ada titik/koma/Rp). description wajib memuat nama barang persis di struk tapi rapi. Abaikan item non-barang seperti PPN/Kembalian kecuali user menginstruksikan.`;
+ATURAN KRUSIAL:
+1. "amount": WAJIB HANYA mengambil HARGA TOTAL/SUBTOTAL BARIS TERSEBUT (biasanya ujung kanan angka). JANGAN set harga satuan. Bebas koma/titik.
+2. "description": WAJIB gabungkan jumlah Kuantitas barang ke dalam nama jika lebih dari satu. Misalnya "(3x)".
+3. type="expense". Abaikan Subtotal Global / PPN / Kembali.`;
         
         // Eksekusi Gemini Multi-modal (Vision)
         result = await model.generateContent([

@@ -36,17 +36,20 @@ router.post('/scan-receipt', async (req, res) => {
       }
     });
 
-    const prompt = `Anda adalah asisten data entry. Berdasarkan gambar struk belanja, esktrak data ke dalam format JSON dengan struktur yang kaku berikut:
-1. "storeName": String, Nama toko atau tempat.
-2. "items": Array dari objek. Setiap objek memiliki "name" (Nama barang, string) dan "price" (Harga satuan/total barang tersebut, integer tanpa titik).
+    const prompt = `Anda adalah kasir AI analitis. Berdasarkan gambar struk belanja, esktrak data ke dalam format JSON dengan struktur yang kaku berikut:
+1. "storeName": String, Nama toko atau merchant.
+2. "items": Array dari objek. Setiap objek memiliki "name" dan "price".
 
-Format Wajib HANYA JSON:
+ATURAN KRUSIAL:
+- "price": WAJIB mengambil HARGA TOTAL/SUBTOTAL dari baris tersebut (biasanya letaknya paling ujung kanan struk). JANGAN mengambil harga eceran satuan. Wajib angka murni tanpa titik.
+- "name": WAJIB menggabungkan nilai KUANTITAS ke dalam nama jika barang dibeli lebih dari satu! Supaya harganya logis bagi yang membaca.
+
+Contoh Format Wajib HANYA JSON:
 {
-  "storeName": "Indomaret",
+  "storeName": "Toko Basmalah",
   "items": [
-    { "name": "Biskuit Coklat", "price": 10000 },
-    { "name": "Susu Tawar", "price": 5000 },
-    { "name": "Kantong Plastik", "price": 500 }
+    { "name": "Sania 1LT (3x)", "price": 52500 },
+    { "name": "Sedaap Goreng 91G (10x)", "price": 30000 }
   ]
 }`;
 
