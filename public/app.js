@@ -235,6 +235,48 @@ function enterApp(user) {
   if (el('settings-user-avatar')) el('settings-user-avatar').textContent = getInitial(user.name);
   if (el('settings-user-name'))   el('settings-user-name').textContent   = user.name;
   if (el('settings-user-email'))  el('settings-user-email').textContent  = user.email;
+
+  setupTelegramUI(user);
+}
+
+function setupTelegramUI(user) {
+  const unlinked = el('telegram-unlinked');
+  const linked = el('telegram-linked');
+  if (!unlinked || !linked) return;
+
+  if (user.telegram_chat_id) {
+    unlinked.style.display = 'none';
+    linked.style.display = 'flex';
+    el('lbl-telegram-id').textContent = user.telegram_chat_id;
+  } else {
+    unlinked.style.display = 'block';
+    linked.style.display = 'none';
+    
+    el('btn-link-telegram').onclick = async () => {
+      const chatId = el('telegram-chat-id-input').value.trim();
+      if (!chatId) {
+        showToast('Chat ID tidak boleh kosong!', 'error');
+        return;
+      }
+      try {
+        const res = await apiFetch('/api/auth/link-telegram', {
+          method: 'POST',
+          body: JSON.stringify({ telegram_chat_id: chatId })
+        });
+        if (res.success) {
+          showToast('Telegram Berhasil Ditautkan!', 'success');
+          // Update Session
+          user.telegram_chat_id = chatId;
+          saveSession(user);
+          setupTelegramUI(user);
+        } else {
+          showToast(res.message, 'error');
+        }
+      } catch(e) {
+        showToast('Koneksi Gagal', 'error');
+      }
+    };
+  }
 }
 
 window.doLogout = function() {

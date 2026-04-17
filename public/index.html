@@ -168,6 +168,27 @@
         </div>
       </div>
 
+      <!-- Telegram Linkage UI -->
+      <div class="section-card" id="telegram-link-card" style="margin-top:20px; background:#eef6ff; border:1px solid #cce0ff;">
+        <div class="section-header">
+          <span class="section-title"><i data-lucide="bot" style="display:inline;vertical-align:-4px;margin-right:6px;width:18px;height:18px;"></i> Asisten Telegram AI</span>
+        </div>
+        
+        <div id="telegram-unlinked" style="display:none;">
+          <p style="font-size:13px; color:#6B8BA4; margin-bottom:12px;">Masukkan <strong>Chat ID</strong> rahasia Anda agar dapat menginput transaksi lewat Chat & Foto Struk!</p>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="telegram-chat-id-input" placeholder="Contoh: 123456789" style="flex:1; padding:8px 12px; border:1px solid #A8C0D0; border-radius:8px; font-size:14px; outline:none;" />
+            <button id="btn-link-telegram" style="background:#2B7FD4; color:white; border:none; border-radius:8px; padding:0 16px; font-weight:600; cursor:pointer;">Tautkan</button>
+          </div>
+          <p style="font-size:12px; color:#A8C0D0; margin-top:8px;">*Chat bot Telegram lalu ketik <b>/start</b> untuk melihat Chat ID Anda.</p>
+        </div>
+
+        <div id="telegram-linked" style="display:none; align-items:center; color:#27AE7A; font-weight:600; font-size:14px;">
+          <i data-lucide="check-circle" style="margin-right:8px; width:20px; height:20px;"></i>
+          <span>Bot Telegram Aktif: <span id="lbl-telegram-id" style="color:#1A2B3C;"></span></span>
+        </div>
+      </div>
+      
       <!-- Chart Section -->
       <div class="section-card">
         <div class="section-header">
