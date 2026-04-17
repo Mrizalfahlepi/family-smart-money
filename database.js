@@ -76,8 +76,8 @@ db.exec(`
 
 // Eksekusi Patcher untuk Tabel Lama (Legacy Tables yang tidak punya kolom user_id)
 addColumnSafe('users', "password TEXT NOT NULL DEFAULT ''");
-addColumnSafe('users', "telegram_chat_id TEXT UNIQUE");
-addColumnSafe('users', "username TEXT UNIQUE");
+addColumnSafe('users', "telegram_chat_id TEXT");
+addColumnSafe('users', "username TEXT");
 addColumnSafe('transactions', "user_id INTEGER NOT NULL DEFAULT 1");
 addColumnSafe('categories', "user_id INTEGER NOT NULL DEFAULT 1");
 addColumnSafe('settings', "user_id INTEGER NOT NULL DEFAULT 1");
