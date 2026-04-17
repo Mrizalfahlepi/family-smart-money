@@ -32,12 +32,13 @@ module.exports = function startBot() {
 
   const bot = new TelegramBot(token, { polling: true });
   
-  // STATE CACHE: Menyimpan Draf Transaksi Sementara sebelum di-ACC User
-  const pendingTransactions = new Map(); // chatId -> [transactions...]
+  // STATE CACHE: Menyimpan Draf Transaksi Sementara
+  // Format map: chatId -> { userId, txs: [] }
+  const pendingTransactions = new Map();
 
   bot.onText(new RegExp('^/start'), (msg) => {
     const chatId = msg.chat.id;
-    bot.sendMessage(chatId, '🤖 *Family Smart Money Bot*\n\nSilakan kirimkan:\n1. Teks Biasa ("Gaji 10jt, beli kopi 15rb")\n2. 📸 Foto Struk Belanja\n\nNanti AI akan memilahnya dan saya akan meminta **Konfirmasi Anda dengan menekan tombol** sebelum menyimpannya ke database Web App!', { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, `🤖 *System Startup*\n\nSelamat datang di Bot Otomatisasi Kasir!\n\n🔑 **Chat ID Anda**: \`${chatId}\`\n\nJika Anda pelanggan baru, pastikan Anda masuk ke *Web Dashboard*, lalu ke menu *Pengaturan/Profil*, dan masukkan **Chat ID** Anda di sana untuk menautkan bot ini ke Toko Anda.`, { parse_mode: 'Markdown' });
   });
 
   bot.on('message', async (msg) => {
@@ -45,9 +46,17 @@ module.exports = function startBot() {
     const text = msg.text;
     const photo = msg.photo;
 
-    // Abaikan command awal & jika tidak ada teks/foto
+    // Abaikan command awal & pesan kosong
     if (text && text.startsWith('/')) return;
     if (!text && !photo) return;
+
+    // ─── PROTEKSI MULTI-TENANT (Wajib Terdaftar!) ───
+    const user = db.get("SELECT id, name FROM users WHERE telegram_chat_id = ?", String(chatId));
+    
+    if (!user) {
+      bot.sendMessage(chatId, `🚫 **Akses Tersumbat!**\n\nNomor KTP Bot Anda (\`${chatId}\`) belum terdaftar atau ditautkan pada Dashboard Akuntansi mana pun.\n\nSilahkan minta admin/owner toko untuk menautkan angka tersebut ke profilnya.`, { parse_mode: 'Markdown' });
+      return;
+    }
 
     let loadingMsg;
 
@@ -61,148 +70,124 @@ module.exports = function startBot() {
       let aiOutput;
 
       if (photo && photo.length > 0) {
-        // --- SCENARIO 1: IMAGE RECEIPT (Membaca Foto) ---
-        loadingMsg = await bot.sendMessage(chatId, '⏳ _Mata AI sedang mencoba membaca foto struk Anda..._', { parse_mode: 'Markdown' });
+        // --- IMAGE RECEIPT ---
+        loadingMsg = await bot.sendMessage(chatId, `Halo Pak/Bu ${user.name}, Mata AI sedang memindai struk Anda...`, { parse_mode: 'Markdown' });
         
-        // Ambil resolusi gambar terbesar
         const fileId = photo[photo.length - 1].file_id;
         const file = await bot.getFile(fileId);
         const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
         
-        // Unduh gambar mentah dari API Telegram ke Memory
         const response = await fetch(fileUrl);
         const arrayBuffer = await response.arrayBuffer();
         const base64Img = Buffer.from(arrayBuffer).toString('base64');
         
-        const promptStruk = `Anda adalah kasir AI analitis pembaca resi/struk belanja keuangan keluarga. Ekstrak data struk gambar tersebut dalam format JSON wajib berikut:
+        const promptStruk = `Anda adalah kasir AI analitis. Ekstrak data struk format JSON wajib berikut:
 {
   "storeName": "Nama Toko",
   "transactions": [
-    { "type": "expense", "amount": 52500, "description": "Sania 1LT (3x)" },
-    { "type": "expense", "amount": 30000, "description": "Sedaap Goreng (10x)" }
+    { "type": "expense", "amount": 52500, "description": "Sania 1LT (3x)" }
   ]
 }
 ATURAN KRUSIAL:
-1. "amount": WAJIB HANYA mengambil HARGA TOTAL/SUBTOTAL BARIS TERSEBUT (biasanya ujung kanan angka). JANGAN set harga satuan. Bebas koma/titik.
-2. "description": WAJIB gabungkan jumlah Kuantitas barang ke dalam nama jika lebih dari satu. Misalnya "(3x)".
-3. type="expense". Abaikan Subtotal Global / PPN / Kembali.`;
+1. "amount": WAJIB HANYA mengambil HARGA TOTAL/SUBTOTAL BARIS TERSEBUT. JANGAN harga satuan.
+2. "description": WAJIB gabungkan jumlah Kuantitas barang ke dalam nama.
+3. type="expense". Abaikan PPN/Kembali/Subtotal Bawah.`;
         
-        // Eksekusi Gemini Multi-modal (Vision)
         result = await model.generateContent([
           promptStruk,
           { inlineData: { data: base64Img, mimeType: "image/jpeg" } }
         ]);
 
       } else if (text) {
-        // --- SCENARIO 2: TEXT MESSAGE (Cerita Acak) ---
-        loadingMsg = await bot.sendMessage(chatId, '⏳ _Otak AI sedang memilah cerita catatan Anda..._', { parse_mode: 'Markdown' });
+        // --- TEXT MESSAGE ---
+        loadingMsg = await bot.sendMessage(chatId, `Halo Pak/Bu ${user.name}, merangkum teks Anda...`, { parse_mode: 'Markdown' });
         
-        const promptTeks = `Anda adalah seorang asisten pencatat akuntansi keuangan rumah tangga. Ekstrak cerita random user ini menjadi format JSON ketat:
+        const promptTeks = `Ekstrak cerita user ini menjadi JSON:
 {
   "transactions": [
     { "type": "income", "amount": 10000000, "description": "Gaji papa" },
     { "type": "expense", "amount": 15000, "description": "Kopi" }
   ]
 }
-Aturan Ketat: "type" HANYA boleh "income" atau "expense". "amount" angka murni integer tanpa titik koma. "description" usahakan singkat 1-4 kata. Bila pesan user cuma tanya/sapaan tanpa uang, kembalikan array transactions kosong [].
-Teks User: "${text}"`;
+Aturan: "type" HANYA boleh "income" / "expense". "amount" murni angka integer. Teks User: "${text}"`;
         result = await model.generateContent(promptTeks);
       }
 
-      // --- PENGOLAHAN OUTPUT GLOBAL ---
       aiOutput = JSON.parse(result.response.text());
-      const txs = aiOutput.transactions || (aiOutput.items /* kompensasi kadang gemini mereturn item */) || [];
+      const txs = aiOutput.transactions || aiOutput.items || [];
 
       if (!txs || txs.length === 0) {
-        bot.editMessageText('❌ Gagal mengenali daftar uang dari gambar/teks tersebut. Coba gunakan foto yang lebih jelas atau kalimat yang lain.', { chat_id: chatId, message_id: loadingMsg.message_id });
+        bot.editMessageText('Gagal mengenali daftar uang dari gambar/teks tersebut. Coba gunakan foto yang lebih jelas.', { chat_id: chatId, message_id: loadingMsg.message_id });
         return;
       }
 
-      // TAHAN: Simpan Draf Transaksi Ke Memori (STATE MAP)
-      pendingTransactions.set(chatId, txs);
+      // SIMPAN NEGARA STATE!
+      pendingTransactions.set(chatId, { userId: user.id, txs: txs });
       
-      // Susun Tampilan Review untuk User Telegram
-      let previewStr = '📝 *Draf Laporan Tertangkap:*\n\n';
-      if (aiOutput.storeName && aiOutput.storeName !== "Toko tidak diketahui") {
-        previewStr += `🏪 Merchant: *${aiOutput.storeName}*\n\n`;
-      }
-      
-      let totalExpense = 0;
-      let totalIncome = 0;
+      let previewStr = `*Draf Laporan Tertangkap untuk Toko ${user.name}:*\n\n`;
+      let totalExpense = 0; let totalIncome = 0;
 
       txs.forEach((tx, idx) => {
-        const icon = tx.type === 'income' ? '💚' : '🔴';
+        const icon = tx.type === 'income' ? '💰' : '💸';
         previewStr += `${idx+1}. ${icon} Rp ${parseInt(tx.amount).toLocaleString('id-ID')} (${tx.description})\n`;
         if (tx.type === 'expense') totalExpense += parseInt(tx.amount);
         if (tx.type === 'income') totalIncome += parseInt(tx.amount);
       });
       
-      if (totalExpense > 0) previewStr += `\n📦 Total Belanja: *Rp ${totalExpense.toLocaleString('id-ID')}*`;
-      if (totalIncome > 0) previewStr += `\n💰 Total Masuk: *Rp ${totalIncome.toLocaleString('id-ID')}*`;
+      if (totalExpense > 0) previewStr += `\n🔴 Total Pengeluaran: *Rp ${totalExpense.toLocaleString('id-ID')}*`;
+      if (totalIncome > 0) previewStr += `\n🟢 Total Pemasukan: *Rp ${totalIncome.toLocaleString('id-ID')}*`;
+      previewStr += `\n\n*Apakah sudah betul?*`;
 
-      previewStr += `\n\n*Apakah rincian dan harganya sudah tepat?*`;
-
-      // Eksekusi Pemasangan Tombol Ajaib (Inline Keyboard)
-      const options = {
+      bot.editMessageText(previewStr, {
         chat_id: chatId, 
         message_id: loadingMsg.message_id, 
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: "✅ Sesuai, Simpan Ke Web App!", callback_data: "CONFIRM_YES" }
-            ],
-            [
-              { text: "❌ Ada yang salah (Batal)", callback_data: "CONFIRM_NO" }
-            ]
+            [{ text: "✅ Betul, Simpan Ke Web", callback_data: "CONFIRM_YES" }],
+            [{ text: "❌ Batalkan", callback_data: "CONFIRM_NO" }]
           ]
         }
-      };
-
-      bot.editMessageText(previewStr, options);
+      });
 
     } catch (error) {
       console.error('[TELEGRAM BOT ERROR]', error.message);
-      if (loadingMsg) bot.editMessageText('⚠️ Terjadi error saat proses konversi AI.', { chat_id: chatId, message_id: loadingMsg.message_id });
+      if (loadingMsg) bot.editMessageText('⚠️ Terjadi error internal bot.', { chat_id: chatId, message_id: loadingMsg.message_id });
     }
   });
 
-  // --- PENANGANAN EVENT TOMBOL (CALLBACK QUERY) ---
   bot.on('callback_query', (query) => {
     const chatId = query.message.chat.id;
     const msgId = query.message.message_id;
     const action = query.data;
 
-    // Cek apakah draf memorinya masih ada (belum basi)
     const dataPending = pendingTransactions.get(chatId);
 
     if (!dataPending) {
-      bot.answerCallbackQuery(query.id, { text: '❌ Sesi draf ini sudah kadaluarsa/hilang. Silakan kirim ulang.', show_alert: true });
+      bot.answerCallbackQuery(query.id, { text: 'Sesi habis.', show_alert: true });
       return;
     }
 
     if (action === 'CONFIRM_NO') {
-      // User membatalkan struk karena typo/AI salah baca
-      pendingTransactions.delete(chatId); // hapus memori
-      const batalMsg = '❌ *Dibatalkan!*\nDraf telah dihapus dari antrean.\n\n_Silakan ketik ulang ralatnya secara manual (Teks biasa) untuk item yang salah tadi._';
-      bot.editMessageText(batalMsg, { chat_id: chatId, message_id: msgId, parse_mode: 'Markdown' });
+      pendingTransactions.delete(chatId);
+      bot.editMessageText('❌ *Dibatalkan!*', { chat_id: chatId, message_id: msgId, parse_mode: 'Markdown' });
       bot.answerCallbackQuery(query.id);
       return;
     }
 
     if (action === 'CONFIRM_YES') {
-      // User Menyetujui! Suntikkan Ke Database Sekarang
       try {
         const today = new Date().toISOString().slice(0, 10);
+        // INSERT dengan user_id
         const insertStmt = db.prepare(`
-          INSERT INTO transactions (type, amount, category_id, description, recorded_by, date)
-          VALUES (?, ?, NULL, ?, 'Telegram Bot', ?)
+          INSERT INTO transactions (user_id, type, amount, category_id, description, recorded_by, date)
+          VALUES (?, ?, ?, NULL, ?, 'Telegram Bot', ?)
         `);
 
         db.exec('BEGIN');
         try {
-          dataPending.forEach(tx => {
-            insertStmt.run(tx.type, tx.amount, tx.description, today);
+          dataPending.txs.forEach(tx => {
+            insertStmt.run(dataPending.userId, tx.type, tx.amount, tx.description, today);
           });
           db.exec('COMMIT');
         } catch (err) {
@@ -210,17 +195,16 @@ Teks User: "${text}"`;
           throw err;
         }
 
-        // Sukses
-        bot.editMessageText('✅ *Sempurna!*\nTransaksi telah selesai direkam dan dikunci aman ke dalam Database Laporan Anda.', { chat_id: chatId, message_id: msgId, parse_mode: 'Markdown' });
-        pendingTransactions.delete(chatId); // bersihkan draf
+        bot.editMessageText('✅ *Sukses!*\nTransaksi telah selesai dikunci ke dalam Database Laporan Anda.', { chat_id: chatId, message_id: msgId, parse_mode: 'Markdown' });
+        pendingTransactions.delete(chatId);
         bot.answerCallbackQuery(query.id, { text: 'Tersimpan Permanen!' });
         
       } catch (e) {
         console.error('[DB INSERT ERROR]', e);
-        bot.answerCallbackQuery(query.id, { text: 'Error internal gagal menyimpan.', show_alert: true });
+        bot.answerCallbackQuery(query.id, { text: 'Error gagal insert DB.', show_alert: true });
       }
     }
   });
 
-  console.log('🤖 [TELEGRAM] Master Bot Interaktif ON!');
+  console.log('🤖 [TELEGRAM] Master Bot Interaktif (SaaS Mode) ON!');
 };

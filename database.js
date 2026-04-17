@@ -19,9 +19,32 @@ db.exec("PRAGMA foreign_keys = ON");
 
 // ─── SCHEMA ───────────────────────────────────────────────────────────────────
 
+// ─── PENTING: MIGRASI SKEMA MULTI-TENANT ───────────────────────────────────────
+// Karena sebelumnya SQLite belum memiliki kolom user_id, kita mencoba menambahkannya (Alter).
+// Jika kolom sudah ada, exception akan ditangkap secara sunyi.
+const addColumnSafe = (table, columnDef) => {
+  try {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
+  } catch (e) {
+    // Abaikan jika kolom sudah ada
+  }
+};
+
 db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    username   TEXT UNIQUE,
+    email      TEXT UNIQUE,
+    password   TEXT NOT NULL DEFAULT '',
+    telegram_chat_id TEXT UNIQUE,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    last_login TEXT DEFAULT (datetime('now','localtime'))
+  );
+
   CREATE TABLE IF NOT EXISTS transactions (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL DEFAULT 1,
     type        TEXT NOT NULL CHECK(type IN ('income','expense')),
     amount      REAL NOT NULL,
     category_id INTEGER,
@@ -29,37 +52,35 @@ db.exec(`
     recorded_by TEXT DEFAULT '',
     date        TEXT NOT NULL,
     created_at  TEXT DEFAULT (datetime('now','localtime')),
-    updated_at  TEXT DEFAULT (datetime('now','localtime'))
+    updated_at  TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY(user_id) REFERENCES users(id)
   );
 
   CREATE TABLE IF NOT EXISTS categories (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL DEFAULT 1,
     name       TEXT NOT NULL,
     type       TEXT NOT NULL CHECK(type IN ('income','expense','both')),
     icon       TEXT NOT NULL,
     is_default INTEGER DEFAULT 0,
-    is_active  INTEGER DEFAULT 1
+    is_active  INTEGER DEFAULT 1,
+    FOREIGN KEY(user_id) REFERENCES users(id)
   );
 
   CREATE TABLE IF NOT EXISTS settings (
-    key   TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS members (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    name      TEXT NOT NULL,
-    is_active INTEGER DEFAULT 1
-  );
-
-  CREATE TABLE IF NOT EXISTS users (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT NOT NULL,
-    email      TEXT NOT NULL UNIQUE,
-    created_at TEXT DEFAULT (datetime('now','localtime')),
-    last_login TEXT DEFAULT (datetime('now','localtime'))
+    key     TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL DEFAULT 1,
+    value   TEXT NOT NULL
   );
 `);
+
+// Eksekusi Patcher untuk Tabel Lama (Legacy Tables yang tidak punya kolom user_id)
+addColumnSafe('users', "password TEXT NOT NULL DEFAULT ''");
+addColumnSafe('users', "telegram_chat_id TEXT UNIQUE");
+addColumnSafe('users', "username TEXT UNIQUE");
+addColumnSafe('transactions', "user_id INTEGER NOT NULL DEFAULT 1");
+addColumnSafe('categories', "user_id INTEGER NOT NULL DEFAULT 1");
+addColumnSafe('settings', "user_id INTEGER NOT NULL DEFAULT 1");
 
 // ─── HELPERS untuk COMPATIBILITY ─────────────────────────────────────────────
 // node:sqlite API sedikit berbeda dari better-sqlite3, kita buat wrapper tipis

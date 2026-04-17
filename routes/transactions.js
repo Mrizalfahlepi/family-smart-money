@@ -6,8 +6,10 @@ const db      = require('../database');
 router.get('/', (req, res) => {
   try {
     const { type, month, year, category_id, search } = req.query;
-    let sql    = 'SELECT t.*, c.name AS category_name, c.icon AS category_icon FROM transactions t LEFT JOIN categories c ON t.category_id = c.id WHERE 1=1';
-    const params = [];
+    const userId = req.user.id;
+
+    let sql    = 'SELECT t.*, c.name AS category_name, c.icon AS category_icon FROM transactions t LEFT JOIN categories c ON t.category_id = c.id WHERE t.user_id = ?';
+    const params = [userId];
 
     if (type)        { sql += " AND t.type = ?";         params.push(type); }
     if (month)       { sql += " AND strftime('%m', t.date) = ?"; params.push(String(month).padStart(2, '0')); }
@@ -33,12 +35,13 @@ router.get('/', (req, res) => {
 router.get('/summary', (req, res) => {
   try {
     const { month, year } = req.query;
+    const userId = req.user.id;
     const now = new Date();
     const m = String(month || now.getMonth() + 1).padStart(2, '0');
     const y = String(year  || now.getFullYear());
 
-    const income  = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='income'  AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(m, y);
-    const expense = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='expense' AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(m, y);
+    const income  = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='income'  AND user_id=? AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(userId, m, y);
+    const expense = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='expense' AND user_id=? AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(userId, m, y);
 
     res.json({
       success: true,
@@ -60,6 +63,7 @@ router.get('/summary', (req, res) => {
 router.get('/monthly', (req, res) => {
   try {
     const months = Math.min(parseInt(req.query.months) || 6, 12);
+    const userId = req.user.id;
     const result = [];
     const now = new Date();
 
@@ -68,8 +72,8 @@ router.get('/monthly', (req, res) => {
       const m = String(d.getMonth() + 1).padStart(2, '0');
       const y = String(d.getFullYear());
 
-      const income  = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='income'  AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(m, y);
-      const expense = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='expense' AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(m, y);
+      const income  = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='income'  AND user_id=? AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(userId, m, y);
+      const expense = db.prepare("SELECT COALESCE(SUM(amount),0) AS total FROM transactions WHERE type='expense' AND user_id=? AND strftime('%m',date)=? AND strftime('%Y',date)=?").get(userId, m, y);
 
       const inc = income  ? income.total  : 0;
       const exp = expense ? expense.total : 0;
@@ -95,14 +99,15 @@ router.get('/monthly', (req, res) => {
 router.get('/report', (req, res) => {
   try {
     const { start_date, end_date } = req.query;
+    const userId = req.user.id;
     if (!start_date || !end_date) return res.status(400).json({ success: false, message: 'start_date dan end_date diperlukan.' });
 
     const transactions = db.prepare(`
       SELECT t.*, c.name AS category_name, c.icon AS category_icon
       FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
-      WHERE t.date BETWEEN ? AND ?
+      WHERE t.user_id = ? AND t.date BETWEEN ? AND ?
       ORDER BY t.date DESC
-    `).all(start_date, end_date);
+    `).all(userId, start_date, end_date);
 
     const income  = transactions.filter(t => t.type === 'income' ).reduce((s, t) => s + t.amount, 0);
     const expense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -112,10 +117,10 @@ router.get('/report', (req, res) => {
              COUNT(*) AS count,
              SUM(t.amount) AS total
       FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
-      WHERE t.date BETWEEN ? AND ?
+      WHERE t.user_id = ? AND t.date BETWEEN ? AND ?
       GROUP BY t.category_id, t.type
       ORDER BY total DESC
-    `).all(start_date, end_date);
+    `).all(userId, start_date, end_date);
 
     res.json({
       success: true,
@@ -135,15 +140,16 @@ router.get('/report', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const { type, amount, category_id, description, recorded_by, date } = req.body;
+    const userId = req.user.id;
     if (!type || !amount || !date) return res.status(400).json({ success: false, message: 'type, amount, dan date wajib diisi.' });
     if (!['income','expense'].includes(type)) return res.status(400).json({ success: false, message: 'type harus income atau expense.' });
     if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) return res.status(400).json({ success: false, message: 'amount harus angka positif.' });
 
     const stmt = db.prepare(`
-      INSERT INTO transactions (type, amount, category_id, description, recorded_by, date)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO transactions (user_id, type, amount, category_id, description, recorded_by, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    const info = stmt.run(type, parseFloat(amount), category_id || null, description || '', recorded_by || '', date);
+    const info = stmt.run(userId, type, parseFloat(amount), category_id || null, description || '', recorded_by || '', date);
 
     const newTx = db.prepare('SELECT t.*, c.name AS category_name, c.icon AS category_icon FROM transactions t LEFT JOIN categories c ON t.category_id = c.id WHERE t.id = ?').get(info.lastInsertRowid);
     res.status(201).json({ success: true, data: newTx, message: 'Transaksi berhasil disimpan.' });
@@ -157,7 +163,8 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT * FROM transactions WHERE id = ?').get(id);
+    const userId = req.user.id;
+    const existing = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(id, userId);
     if (!existing) return res.status(404).json({ success: false, message: 'Transaksi tidak ditemukan.' });
 
     const { type, amount, category_id, description, recorded_by, date } = req.body;
@@ -172,8 +179,8 @@ router.put('/:id', (req, res) => {
 
     db.prepare(`
       UPDATE transactions SET type=?, amount=?, category_id=?, description=?, recorded_by=?, date=?,
-      updated_at=datetime('now','localtime') WHERE id=?
-    `).run(newType, newAmount, newCategoryId, newDescription, newRecordedBy, newDate, id);
+      updated_at=datetime('now','localtime') WHERE id=? AND user_id=?
+    `).run(newType, newAmount, newCategoryId, newDescription, newRecordedBy, newDate, id, userId);
 
     const updated = db.prepare('SELECT t.*, c.name AS category_name, c.icon AS category_icon FROM transactions t LEFT JOIN categories c ON t.category_id = c.id WHERE t.id = ?').get(id);
     res.json({ success: true, data: updated, message: 'Transaksi berhasil diperbarui.' });
@@ -187,7 +194,8 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const existing = db.prepare('SELECT id FROM transactions WHERE id = ?').get(id);
+    const userId = req.user.id;
+    const existing = db.prepare('SELECT id FROM transactions WHERE id = ? AND user_id = ?').get(id, userId);
     if (!existing) return res.status(404).json({ success: false, message: 'Transaksi tidak ditemukan.' });
 
     db.prepare('DELETE FROM transactions WHERE id = ?').run(id);

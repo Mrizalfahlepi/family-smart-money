@@ -93,10 +93,28 @@ function qsa(sel){ return document.querySelectorAll(sel); }
 
 async function apiFetch(path, opts = {}) {
   try {
+    const session = loadSession();
+    const token = session ? session.token : '';
+    
+    const headers = { 
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      ...(opts.headers || {}) 
+    };
+
     const res = await fetch(API + path, {
-      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
       ...opts,
+      headers
     });
+    
+    // Auto logout if token expires
+    if (res.status === 401 || res.status === 403) {
+      if (path !== '/auth/login' && path !== '/auth/register') {
+        localStorage.removeItem('fsm_session');
+        window.location.reload();
+      }
+    }
+
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Server error');
     return data;
@@ -115,18 +133,36 @@ function showLoginScreen() {
   ls.classList.remove('hidden');
   app.classList.add('hidden');
 
-  const nameInput  = el('login-name');
-  const emailInput = el('login-email');
-  const btn        = el('btn-login');
-  const errBox     = el('login-error');
-  const errMsg     = el('login-error-msg');
+  const tabLogin = el('tab-login');
+  const tabReg   = el('tab-register');
+  const fieldName = el('field-name');
+  const nameInput = el('login-name');
+  const userInput = el('login-username');
+  const passInput = el('login-password');
+  const btn       = el('btn-login');
+  const btnText   = el('login-btn-text');
+  const errBox    = el('login-error');
+  const errMsg    = el('login-error-msg');
 
-  // Jika ada session sebelumnya, isi otomatis
-  const prev = loadSession();
-  if (prev) {
-    nameInput.value  = prev.name  || '';
-    emailInput.value = prev.email || '';
-  }
+  let isRegistering = false;
+
+  tabLogin.onclick = () => {
+    isRegistering = false;
+    fieldName.style.display = 'none';
+    tabLogin.style.color = '#2B7FD4';
+    tabReg.style.color = '#A8C0D0';
+    btnText.textContent = 'Masuk ke Dashboard';
+    setError('');
+  };
+
+  tabReg.onclick = () => {
+    isRegistering = true;
+    fieldName.style.display = 'block';
+    tabReg.style.color = '#2B7FD4';
+    tabLogin.style.color = '#A8C0D0';
+    btnText.textContent = 'Daftar Sekarang';
+    setError('');
+  };
 
   function setError(msg) {
     errMsg.textContent = msg;
@@ -134,44 +170,55 @@ function showLoginScreen() {
     if (msg) lucide.createIcons({ nodes: [errBox] });
   }
 
-  async function doLogin() {
-    const name  = nameInput.value.trim();
-    const email = emailInput.value.trim();
-    if (!name)  { setError('Nama wajib diisi.'); nameInput.focus(); return; }
-    if (!email) { setError('Email wajib diisi.'); emailInput.focus(); return; }
-    setError('');
+  async function handleSubmit() {
+    const name = nameInput.value.trim();
+    const username = userInput.value.trim();
+    const password = passInput.value.trim();
 
+    if (isRegistering && !name) { setError('Nama Usaha/Toko wajib diisi.'); return; }
+    if (!username) { setError('Username wajib diisi.'); return; }
+    if (!password) { setError('Password wajib diisi.'); return; }
+    
+    setError('');
     btn.disabled = true;
-    el('login-btn-text').textContent = 'Memproses...';
+    btnText.textContent = 'Memproses...';
+
+    const url = isRegistering ? '/api/auth/register' : '/api/auth/login';
+    const bodyObj = isRegistering ? { name, username, password } : { username, password };
 
     try {
-      const res = await fetch('/api/auth/login', {
-        method:  'POST',
+      const res = await fetch(url, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ name, email }),
+        body: JSON.stringify(bodyObj)
       });
       const data = await res.json();
 
       if (!data.success) {
-        setError(data.message || 'Login gagal.');
+        setError(data.message || 'Gagal terhubung.');
         return;
       }
 
-      saveSession(data.data);
-      showToast(data.message, 'success');
-      enterApp(data.data);
-      await initApp();
+      if (isRegistering) {
+        showToast('Berhasil Mendaftar! Silakan Masuk.', 'success');
+        tabLogin.click(); // Switch to login tab safely after register
+        passInput.value = '';
+      } else {
+        saveSession({ token: data.token, ...data.user });
+        showToast('Login Berhasil!', 'success');
+        enterApp({ token: data.token, ...data.user });
+        await initApp();
+      }
     } catch(e) {
-      setError('Tidak dapat terhubung ke server. Pastikan server berjalan.');
+      setError('Terjadi kendala jaringan.');
     } finally {
       btn.disabled = false;
-      el('login-btn-text').textContent = 'Masuk / Daftar';
+      btnText.textContent = isRegistering ? 'Daftar Sekarang' : 'Masuk ke Dashboard';
     }
   }
 
-  btn.addEventListener('click', doLogin);
-  emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
-  nameInput.addEventListener('keydown',  e => { if (e.key === 'Enter') emailInput.focus(); });
+  btn.addEventListener('click', handleSubmit);
+  passInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleSubmit(); });
 }
 
 function enterApp(user) {

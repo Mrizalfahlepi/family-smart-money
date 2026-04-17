@@ -24,14 +24,14 @@ app.use((req, res, next) => {
 const transactionsRouter = require('./routes/transactions');
 const categoriesRouter = require('./routes/categories');
 const settingsRouter = require('./routes/settings');
-const authRouter = require('./routes/auth');
+const { router: authRouter, authenticateToken } = require('./routes/auth');
 const aiRouter = require('./routes/ai');
 
 app.use('/api/auth', authRouter);
-app.use('/api/transactions', transactionsRouter);
-app.use('/api/categories', categoriesRouter);
-app.use('/api/ai', aiRouter);
-app.use('/api', settingsRouter);   // handles /api/settings, /api/members, /api/backup, /api/restore, /api/reset
+app.use('/api/transactions', authenticateToken, transactionsRouter);
+app.use('/api/categories', authenticateToken, categoriesRouter);
+app.use('/api/ai', authenticateToken, aiRouter);
+app.use('/api', authenticateToken, settingsRouter);   // handles /api/settings, /api/members, /api/backup, /api/restore, /api/reset
 
 // Health check
 app.get('/api/health', (req, res) => {

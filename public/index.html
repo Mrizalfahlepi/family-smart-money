@@ -63,23 +63,36 @@
       <span id="login-error-msg"></span>
     </div>
 
+    <!-- Toggle Login/Register -->
+    <div class="login-tabs" style="display:flex;gap:10px;margin-bottom:20px;border-bottom:2px solid #E3F0FB;padding-bottom:10px;">
+      <button id="tab-login" style="flex:1;background:none;border:none;font-weight:bold;color:#2B7FD4;font-size:16px;">Masuk</button>
+      <button id="tab-register" style="flex:1;background:none;border:none;font-weight:bold;color:#A8C0D0;font-size:16px;">Daftar</button>
+    </div>
+
     <div class="login-form">
-      <div class="login-field">
-        <label class="login-label">Nama Lengkap</label>
+      <div class="login-field" id="field-name" style="display:none;">
+        <label class="login-label">Nama Bisnis / Usaha</label>
         <div class="login-input-wrap">
-          <i data-lucide="user" class="login-input-icon"></i>
-          <input type="text" id="login-name" class="login-input" placeholder="Contoh: Budi Santoso" autocomplete="name" />
+          <i data-lucide="building" class="login-input-icon"></i>
+          <input type="text" id="login-name" class="login-input" placeholder="Contoh: Toko Basmalah" />
         </div>
       </div>
       <div class="login-field">
-        <label class="login-label">Alamat Email</label>
+        <label class="login-label">Username</label>
         <div class="login-input-wrap">
-          <i data-lucide="mail" class="login-input-icon"></i>
-          <input type="email" id="login-email" class="login-input" placeholder="contoh@email.com" autocomplete="email" inputmode="email" />
+          <i data-lucide="user" class="login-input-icon"></i>
+          <input type="text" id="login-username" class="login-input" placeholder="contoh: tokobasmalah" autocomplete="username" />
+        </div>
+      </div>
+      <div class="login-field">
+        <label class="login-label">Password</label>
+        <div class="login-input-wrap">
+          <i data-lucide="lock" class="login-input-icon"></i>
+          <input type="password" id="login-password" class="login-input" placeholder="••••••••" autocomplete="current-password" />
         </div>
       </div>
       <button class="login-btn" id="btn-login">
-        <span id="login-btn-text">Masuk / Daftar</span>
+        <span id="login-btn-text">Masuk ke Dashboard</span>
         <i data-lucide="arrow-right" id="login-btn-icon"></i>
       </button>
     </div>
