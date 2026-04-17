@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2B7FD4" />
+  <meta name="description" content="Aplikasi keuangan keluarga yang cerdas dan mudah digunakan." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>Family Smart Money</title>
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://api.fontshare.com" />
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+  <!-- Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- SheetJS -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════ OFFLINE BANNER -->
+<div id="offline-banner" class="offline-banner hidden">
+  <i data-lucide="wifi-off" style="width:16px;height:16px"></i>
+  <span>Koneksi ke server terputus</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ LOGIN SCREEN -->
+<div id="login-screen" class="login-screen hidden">
+  <div class="login-bg-blob login-bg-blob--1"></div>
+  <div class="login-bg-blob login-bg-blob--2"></div>
+
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="52" height="52" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="32" height="32" rx="10" fill="#2B7FD4"/>
+        <path d="M7 10C7 8.89543 7.89543 8 9 8H17C18.1046 8 19 8.89543 19 10V14C19 15.1046 18.1046 16 17 16H9C7.89543 16 7 15.1046 7 14V10Z" fill="white" fill-opacity="0.3"/>
+        <path d="M13 16C13 14.8954 13.8954 14 15 14H23C24.1046 14 25 14.8954 25 16V20C25 21.1046 24.1046 22 23 22H15C13.8954 22 13 21.1046 13 20V16Z" fill="white" fill-opacity="0.6"/>
+        <circle cx="11" cy="22" r="3" fill="white" fill-opacity="0.4"/>
+        <circle cx="22" cy="10" r="2.5" fill="white"/>
+      </svg>
+    </div>
+    <h1 class="login-title">Family Smart Money</h1>
+    <p class="login-subtitle">Masuk dengan nama &amp; email Anda.<br>Tidak perlu password.</p>
+
+    <div id="login-error" class="login-error hidden">
+      <i data-lucide="alert-circle"></i>
+      <span id="login-error-msg"></span>
+    </div>
+
+    <div class="login-form">
+      <div class="login-field">
+        <label class="login-label">Nama Lengkap</label>
+        <div class="login-input-wrap">
+          <i data-lucide="user" class="login-input-icon"></i>
+          <input type="text" id="login-name" class="login-input" placeholder="Contoh: Budi Santoso" autocomplete="name" />
+        </div>
+      </div>
+      <div class="login-field">
+        <label class="login-label">Alamat Email</label>
+        <div class="login-input-wrap">
+          <i data-lucide="mail" class="login-input-icon"></i>
+          <input type="email" id="login-email" class="login-input" placeholder="contoh@email.com" autocomplete="email" inputmode="email" />
+        </div>
+      </div>
+      <button class="login-btn" id="btn-login">
+        <span id="login-btn-text">Masuk / Daftar</span>
+        <i data-lucide="arrow-right" id="login-btn-icon"></i>
+      </button>
+    </div>
+
+    <p class="login-note">
+      <i data-lucide="shield-check" style="width:13px;height:13px;display:inline;vertical-align:middle"></i>
+      Data tersimpan aman di perangkat ini
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ APP SHELL -->
+<div id="app" class="hidden">
+
+  <!-- ── HEADER ──────────────────────────────────────────────────────────── -->
+  <header class="app-header" id="app-header">
+    <div class="header-left">
+      <div class="logo-fsm">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="10" fill="#2B7FD4"/>
+          <path d="M7 10C7 8.89543 7.89543 8 9 8H17C18.1046 8 19 8.89543 19 10V14C19 15.1046 18.1046 16 17 16H9C7.89543 16 7 15.1046 7 14V10Z" fill="white" fill-opacity="0.3"/>
+          <path d="M13 16C13 14.8954 13.8954 14 15 14H23C24.1046 14 25 14.8954 25 16V20C25 21.1046 24.1046 22 23 22H15C13.8954 22 13 21.1046 13 20V16Z" fill="white" fill-opacity="0.6"/>
+          <circle cx="11" cy="22" r="3" fill="white" fill-opacity="0.4"/>
+          <circle cx="22" cy="10" r="2.5" fill="white"/>
+        </svg>
+      </div>
+      <div class="header-title-group">
+        <span class="header-app-name">Family Smart Money</span>
+        <span class="header-subtitle" id="header-subtitle">Memuat...</span>
+        <span class="header-user-email" id="header-user-email"></span>
+      </div>
+    </div>
+    <button class="header-avatar" id="header-avatar" aria-label="Pengaturan">
+      <span id="avatar-initial">K</span>
+    </button>
+  </header>
+
+  <!-- ── PAGE VIEWS ───────────────────────────────────────────────────────── -->
+  <main class="main-content" id="main-content">
+
+    <!-- ────────────────────────────── DASHBOARD ──────────────────────────── -->
+    <section id="view-dashboard" class="view active">
+
+      <!-- Balance Card -->
+      <div class="balance-card">
+        <div class="balance-label">Net Cashflow Bulan Ini</div>
+        <div class="balance-amount" id="balance-amount">
+          <span class="balance-currency">Rp</span>
+          <span class="balance-number" id="balance-number">0</span>
+        </div>
+        <div class="balance-period" id="balance-period">Memuat...</div>
+      </div>
+
+      <!-- Income / Expense Mini Cards -->
+      <div class="mini-cards">
+        <div class="mini-card mini-card--income">
+          <div class="mini-card-icon">
+            <i data-lucide="arrow-down-left"></i>
+          </div>
+          <div class="mini-card-info">
+            <span class="mini-card-label">Pemasukan</span>
+            <span class="mini-card-amount" id="dashboard-income">Rp 0</span>
+          </div>
+        </div>
+        <div class="mini-card mini-card--expense">
+          <div class="mini-card-icon">
+            <i data-lucide="arrow-up-right"></i>
+          </div>
+          <div class="mini-card-info">
+            <span class="mini-card-label">Pengeluaran</span>
+            <span class="mini-card-amount" id="dashboard-expense">Rp 0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart Section -->
+      <div class="section-card">
+        <div class="section-header">
+          <span class="section-title">Tren 6 Bulan</span>
+        </div>
+        <div class="chart-container" id="dashboard-chart-skeleton">
+          <div class="skeleton skeleton-chart"></div>
+        </div>
+        <div class="chart-canvas-wrap" id="dashboard-chart-wrap" style="display:none">
+          <canvas id="dashboard-chart" height="180"></canvas>
+        </div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="section-card">
+        <div class="section-header">
+          <span class="section-title">Transaksi Terbaru</span>
+          <button class="btn-text" id="btn-see-all-tx">Lihat Semua</button>
+        </div>
+        <div id="recent-tx-list">
+          <div class="skeleton-list">
+            <div class="skeleton skeleton-tx"></div>
+            <div class="skeleton skeleton-tx"></div>
+            <div class="skeleton skeleton-tx"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 100px"></div>
+    </section>
+
+    <!-- ─────────────────────────────── TRANSACTIONS ───────────────────────── -->
+    <section id="view-transactions" class="view">
+      <div class="tx-toolbar">
+        <div class="search-bar">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="tx-search" class="search-input" placeholder="Cari transaksi..." />
+          <button class="search-clear hidden" id="tx-search-clear" aria-label="Hapus pencarian">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="filter-row">
+          <div class="filter-pills" id="tx-filter-pills">
+            <button class="pill active" data-type="">Semua</button>
+            <button class="pill" data-type="income">Pemasukan</button>
+            <button class="pill" data-type="expense">Pengeluaran</button>
+          </div>
+          <div class="date-filter">
+            <select id="tx-month" class="select-filter">
+              <option value="">Semua Bulan</option>
+            </select>
+            <select id="tx-year" class="select-filter">
+              <option value="">Semua Tahun</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="tx-list-container">
+        <div class="skeleton-list">
+          <div class="skeleton skeleton-tx"></div>
+          <div class="skeleton skeleton-tx"></div>
+          <div class="skeleton skeleton-tx"></div>
+          <div class="skeleton skeleton-tx"></div>
+        </div>
+      </div>
+      <div style="height: 100px"></div>
+    </section>
+
+    <!-- ──────────────────────────────── REPORTS ──────────────────────────── -->
+    <section id="view-reports" class="view">
+      <div class="report-filter-bar">
+        <div class="filter-pills" id="report-range-pills">
+          <button class="pill active" data-range="month">Bulan Ini</button>
+          <button class="pill" data-range="3months">3 Bulan</button>
+          <button class="pill" data-range="6months">6 Bulan</button>
+          <button class="pill" data-range="year">Tahun Ini</button>
+          <button class="pill" data-range="custom">Custom</button>
+        </div>
+        <div id="report-custom-range" class="custom-range hidden">
+          <input type="date" id="report-start" class="date-input" />
+          <span>–</span>
+          <input type="date" id="report-end" class="date-input" />
+          <button class="btn-primary-sm" id="btn-report-apply">Terapkan</button>
+        </div>
+      </div>
+
+      <div class="report-summary-cards">
+        <div class="summary-card summary-card--income">
+          <div class="summary-label">Total Masuk</div>
+          <div class="summary-amount" id="report-income">Rp 0</div>
+        </div>
+        <div class="summary-card summary-card--expense">
+          <div class="summary-label">Total Keluar</div>
+          <div class="summary-amount" id="report-expense">Rp 0</div>
+        </div>
+        <div class="summary-card summary-card--balance">
+          <div class="summary-label">Net Cashflow</div>
+          <div class="summary-amount" id="report-balance">Rp 0</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header"><span class="section-title">Pengeluaran per Kategori</span></div>
+        <div class="chart-canvas-wrap" style="max-height:260px">
+          <canvas id="report-donut-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header"><span class="section-title">Tren Bulanan</span></div>
+        <canvas id="report-bar-chart" height="200"></canvas>
+      </div>
+
+      <div class="section-card">
+        <div class="section-header"><span class="section-title">Detail per Kategori</span></div>
+        <div id="report-category-table"></div>
+      </div>
+
+      <div class="export-buttons">
+        <button class="btn-export" id="btn-export-excel">
+          <i data-lucide="file-spreadsheet"></i>
+          Export Excel
+        </button>
+        <button class="btn-export btn-export--pdf" id="btn-export-pdf">
+          <i data-lucide="file-text"></i>
+          Export PDF
+        </button>
+      </div>
+      <div style="height: 100px"></div>
+    </section>
+
+    <!-- ──────────────────────────────── SETTINGS ─────────────────────────── -->
+    <section id="view-settings" class="view">
+
+      <!-- Akun Pengguna -->
+      <div class="settings-group">
+        <div class="settings-group-label">Akun Saya</div>
+        <div class="section-card">
+          <div class="user-account-row">
+            <div class="user-account-avatar" id="settings-user-avatar">?</div>
+            <div class="user-account-info">
+              <div class="user-account-name" id="settings-user-name">—</div>
+              <div class="user-account-email" id="settings-user-email">—</div>
+            </div>
+          </div>
+          <div class="settings-divider"></div>
+          <div class="settings-action-row">
+            <div class="settings-action-info">
+              <span class="settings-action-title">Keluar dari Akun</span>
+              <span class="settings-action-desc">Anda perlu login ulang dengan nama &amp; email</span>
+            </div>
+            <button class="btn-danger-outline-sm" id="btn-logout">
+              <i data-lucide="log-out"></i>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">Nama Keluarga</div>
+        <div class="section-card">
+          <div class="inline-edit-row">
+            <span id="family-name-display" class="inline-edit-text">Keluarga Kita</span>
+            <button class="btn-icon-sm" id="btn-edit-family-name" aria-label="Edit nama keluarga">
+              <i data-lucide="pencil"></i>
+            </button>
+          </div>
+          <div id="family-name-edit-row" class="inline-edit-input-row hidden">
+            <input type="text" id="family-name-input" class="setting-input" placeholder="Nama keluarga" />
+            <button class="btn-primary-sm" id="btn-save-family-name">Simpan</button>
+            <button class="btn-ghost-sm" id="btn-cancel-family-name">Batal</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">Anggota Keluarga</div>
+        <div class="section-card">
+          <div id="members-list"></div>
+          <div class="add-member-row" id="add-member-row">
+            <input type="text" id="new-member-name" class="setting-input" placeholder="Nama anggota baru..." />
+            <button class="btn-primary-sm" id="btn-add-member">
+              <i data-lucide="plus"></i>
+              Tambah
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">Kategori Kustom</div>
+        <div class="section-card">
+          <div id="custom-categories-list"></div>
+          <div class="add-category-form">
+            <input type="text" id="new-cat-name" class="setting-input" placeholder="Nama kategori..." />
+            <input type="text" id="new-cat-icon" class="setting-input" placeholder="Ikon Lucide (cth: tag)" />
+            <select id="new-cat-type" class="select-filter">
+              <option value="expense">Pengeluaran</option>
+              <option value="income">Pemasukan</option>
+              <option value="both">Keduanya</option>
+            </select>
+            <button class="btn-primary-sm" id="btn-add-category">Tambah Kategori</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-group-label">Data & Backup</div>
+        <div class="section-card">
+          <div class="settings-action-row">
+            <div class="settings-action-info">
+              <span class="settings-action-title">Export Backup</span>
+              <span class="settings-action-desc">Simpan semua data sebagai file JSON</span>
+            </div>
+            <button class="btn-outline-sm" id="btn-backup">
+              <i data-lucide="download"></i>
+              Export
+            </button>
+          </div>
+          <div class="settings-divider"></div>
+          <div class="settings-action-row">
+            <div class="settings-action-info">
+              <span class="settings-action-title">Restore dari Backup</span>
+              <span class="settings-action-desc">Import file JSON backup sebelumnya</span>
+            </div>
+            <label class="btn-outline-sm" for="restore-file-input">
+              <i data-lucide="upload"></i>
+              Import
+            </label>
+            <input type="file" id="restore-file-input" accept=".json" style="display:none" />
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group danger-zone">
+        <div class="settings-group-label">Danger Zone</div>
+        <div class="section-card">
+          <div class="settings-action-row">
+            <div class="settings-action-info">
+              <span class="settings-action-title" style="color:var(--color-danger)">Reset Semua Data</span>
+              <span class="settings-action-desc">Hapus semua transaksi. Tidak bisa dibatalkan.</span>
+            </div>
+            <button class="btn-danger-outline-sm" id="btn-reset-data">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="height: 100px"></div>
+    </section>
+
+  </main>
+
+  <!-- ── BOTTOM NAVIGATION ─────────────────────────────────────────────────── -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-item active" data-view="dashboard" id="nav-dashboard">
+      <i data-lucide="home"></i>
+      <span>Beranda</span>
+    </button>
+    <button class="nav-item" data-view="transactions" id="nav-transactions">
+      <i data-lucide="list"></i>
+      <span>Transaksi</span>
+    </button>
+    <button class="nav-item" data-view="reports" id="nav-reports">
+      <i data-lucide="pie-chart"></i>
+      <span>Laporan</span>
+    </button>
+    <button class="nav-item" data-view="settings" id="nav-settings">
+      <i data-lucide="settings-2"></i>
+      <span>Pengaturan</span>
+    </button>
+  </nav>
+
+  <!-- ── FAB ───────────────────────────────────────────────────────────────── -->
+  <button class="fab" id="fab-add" aria-label="Tambah transaksi">
+    <i data-lucide="plus" style="width:24px;height:24px"></i>
+  </button>
+
+</div><!-- /#app -->
+
+<!-- ═══════════════════════════════════════════════ BOTTOM SHEET: ADD TRANSACTION -->
+<div class="sheet-overlay" id="sheet-overlay"></div>
+<div class="bottom-sheet" id="sheet-add-tx" role="dialog" aria-modal="true" aria-label="Tambah Transaksi">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <h2 class="sheet-title" id="sheet-title">Tambah Transaksi</h2>
+    <button class="btn-icon-sm" id="btn-close-sheet" aria-label="Tutup">
+      <i data-lucide="x"></i>
+    </button>
+  </div>
+
+  <div class="sheet-body">
+    <!-- Type Toggle -->
+    <div class="type-toggle" id="type-toggle">
+      <button class="type-btn active" data-type="expense" id="btn-type-expense">
+        <i data-lucide="arrow-up-right"></i>
+        PENGELUARAN
+      </button>
+      <button class="type-btn" data-type="income" id="btn-type-income">
+        <i data-lucide="arrow-down-left"></i>
+        PEMASUKAN
+      </button>
+    </div>
+
+    <!-- AI Scan Banner -->
+    <div class="ai-scan-banner" id="ai-scan-banner">
+      <div class="ai-scan-info">
+        <i data-lucide="sparkles" class="ai-icon"></i>
+        <span>Isi otomatis dari struk!</span>
+      </div>
+      <label class="btn-ai-scan" for="ai-file-input">
+        <i data-lucide="camera"></i> Foto Struk
+      </label>
+      <input type="file" id="ai-file-input" accept="image/*" style="display:none" />
+    </div>
+
+    <!-- AI Loading Overlay -->
+    <div class="ai-loading-overlay hidden" id="ai-loading-overlay">
+      <div class="ai-spinner"></div>
+      <span>Memindai Struk...</span>
+    </div>
+
+    <!-- AI Review Wrapper -->
+    <div class="ai-review-wrapper hidden" id="ai-review-wrapper">
+      <div class="ai-review-header">
+        <i data-lucide="shopping-cart"></i>
+        <span>Review Barang Bawaan</span>
+      </div>
+      <div class="ai-review-store">
+        <label>Nama Toko:</label>
+        <input type="text" id="ai-store-name" placeholder="Masukan nama toko..." />
+      </div>
+      <div class="ai-review-list" id="ai-review-list">
+        <!-- Injected via JS -->
+      </div>
+      <button class="btn-outline-sm btn-add-review-item" id="btn-add-review-item">
+        <i data-lucide="plus"></i> Tambah Barang
+      </button>
+      <div class="ai-review-total">
+        <span>Total Kalkulasi:</span>
+        <span id="ai-calc-total">Rp 0</span>
+      </div>
+    </div>
+
+    <!-- Amount -->
+    <div class="form-field">
+      <label class="form-label">Nominal</label>
+      <div class="amount-input-wrap">
+        <span class="currency-prefix">Rp</span>
+        <input type="text" id="tx-amount" class="amount-input" placeholder="0" inputmode="numeric" />
+      </div>
+    </div>
+
+    <!-- Category -->
+    <div class="form-field">
+      <label class="form-label">Kategori</label>
+      <div class="category-grid" id="category-grid"></div>
+    </div>
+
+    <!-- Date -->
+    <div class="form-field">
+      <label class="form-label">Tanggal</label>
+      <input type="date" id="tx-date" class="setting-input" />
+    </div>
+
+    <!-- Description -->
+    <div class="form-field">
+      <label class="form-label">Keterangan / Daftar Barang <span class="label-optional">(opsional)</span></label>
+      <textarea id="tx-desc" class="setting-textarea" placeholder="Catatan singkat atau daftar struk belanja..." rows="6"></textarea>
+    </div>
+
+    <!-- Recorded By -->
+    <div class="form-field">
+      <label class="form-label">Pencatat</label>
+      <div class="recorded-by-wrap">
+        <input type="text" id="tx-recorded-by" class="setting-input" placeholder="Nama pencatat..." />
+        <div class="members-suggest" id="members-suggest"></div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <button class="btn-save-tx" id="btn-save-tx">
+      <i data-lucide="check"></i>
+      Simpan Transaksi
+    </button>
+    <button class="btn-delete-tx hidden" id="btn-delete-tx">
+      <i data-lucide="trash-2"></i>
+      Hapus Transaksi
+    </button>
+
+    <div style="height:16px"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ BOTTOM SHEET: CONFIRM DELETE -->
+<div class="bottom-sheet bottom-sheet--sm" id="sheet-confirm" role="dialog" aria-modal="true">
+  <div class="sheet-handle"></div>
+  <div class="sheet-body" style="padding-top: 8px;">
+    <div class="confirm-icon">
+      <i data-lucide="alert-triangle" style="width:32px;height:32px;color:var(--color-danger)"></i>
+    </div>
+    <h3 class="confirm-title" id="confirm-title">Hapus Transaksi?</h3>
+    <p class="confirm-desc" id="confirm-desc">Transaksi ini akan dihapus permanen dan tidak bisa dikembalikan.</p>
+    <div class="confirm-actions">
+      <button class="btn-ghost confirm-cancel" id="btn-confirm-cancel">Batal</button>
+      <button class="btn-danger confirm-ok" id="btn-confirm-ok">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ TOAST -->
+<div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

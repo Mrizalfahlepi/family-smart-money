@@ -1,0 +1,29 @@
+{
+  "name": "family-smart-money",
+  "version": "1.0.0",
+  "description": "Aplikasi keuangan keluarga berbasis web — Family Smart Money",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "better-sqlite3": "^12.9.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.3",
+    "multer": "^1.4.5-lts.1",
+    "sql.js": "^1.14.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "keuangan",
+    "keluarga",
+    "finance",
+    "family"
+  ],
+  "author": "Family Smart Money",
+  "license": "MIT"
+}
