@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const path    = require('path');
+const path = require('path');
 
 const app = express();
 
@@ -22,16 +22,16 @@ app.use((req, res, next) => {
 
 // ─── ROUTES ───────────────────────────────────────────────────────────────────
 const transactionsRouter = require('./routes/transactions');
-const categoriesRouter   = require('./routes/categories');
-const settingsRouter     = require('./routes/settings');
-const authRouter         = require('./routes/auth');
-const aiRouter           = require('./routes/ai');
+const categoriesRouter = require('./routes/categories');
+const settingsRouter = require('./routes/settings');
+const authRouter = require('./routes/auth');
+const aiRouter = require('./routes/ai');
 
-app.use('/api/auth',         authRouter);
+app.use('/api/auth', authRouter);
 app.use('/api/transactions', transactionsRouter);
-app.use('/api/categories',   categoriesRouter);
-app.use('/api/ai',           aiRouter);
-app.use('/api',              settingsRouter);   // handles /api/settings, /api/members, /api/backup, /api/restore, /api/reset
+app.use('/api/categories', categoriesRouter);
+app.use('/api/ai', aiRouter);
+app.use('/api', settingsRouter);   // handles /api/settings, /api/members, /api/backup, /api/restore, /api/reset
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -51,7 +51,13 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
 });
 
-// ─── START SERVER ─────────────────────────────────────────────────────────────
+// ─── START SERVER & TELEGRAM ──────────────────────────────────────────────────
+try {
+  require('./telegram-bot')();
+} catch (err) {
+  console.error('[WARN] Modul Telegram gagal dimuat:', err.message);
+}
+
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 

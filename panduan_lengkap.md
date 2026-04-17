@@ -1,124 +1,86 @@
-# PANDUAN LENGKAP - FAMILY SMART MONEY 🌐💰
+# BLUEPRINT ARSITEKTUR - FAMILY SMART MONEY 🌐🧠
+*(Dokumen Master Teknis untuk Serah Terima AI di Masa Depan)*
 
-Dokumen ini adalah panduan teknis operasional dan rekam jejak penyelesaian masalah dari aplikasi **Family Smart Money**. Dokumen ini wajib digunakan sebagai rujukan apabila aplikasi ini hendak di-deploy kembali di Virtual Machine (GCP/AWS/Azure) lain di masa depan.
-
----
-
-## 1. ARSITEKTUR & STACK TEKNOLOGI
-
-Aplikasi ini didesain sebagai **Monolithic Web App** dengan arsitektur **Single Page Application (SPA)** murni agar sangat ringan, super cepat, dan stabil berjalan di server Windows 16GB.
-
-### Frontend
-- **HTML/CSS/JS Vanilla**: Tidak menggunakan framework raksasa seperti React/Vue/Tailwind agar tidak memakan memori *(zero-build-process)*.
-- **Routing**: `Hash Routing` (contoh: `/#dashboard`, `/#transactions`) lewat JavaScript untuk perpindahan halaman yang sangat mulus tanpa me-*reload* server.
-- **Library Tambahan**: 
-  - `Chart.js` (Canvas Graphing)
-  - `Lucide` (Ikon Vektor SVG)
-  - `SheetJS` (Eksport ke Excel `.xlsx`)
-  - `jsPDF & AutoTable` (Eksport Laporan ke `.pdf`)
-- **Desain UI**: Modern *Glassmorphism*, 100% responsif dengan paradigma Mobile-First (dioptimalkan untuk perangkat layar kecil).
-
-### Backend
-- **Node.js (versi >= 22.5.0)**: Wajib versi tinggi karena kita memanfaatkan fitur internal yang baru.
-- **Express.js**: Membangun API Endpoint yang me-*return* format JSON murni.
-- **Database (`node:sqlite`)**: Menggunakan built-in (bawaan) SQLite dari Node.js terbaru untuk menyimpan data (bukan `better-sqlite3`).
+Dokumen ini adalah *"BluePrint"* komprehensif tingkat tinggi yang dirancang khusus untuk dibaca oleh **AI Asisten** di masa depan. Jika Anda (Kawan AI) ditugaskan melanjutkan proyek ini, baca dokumen ini dengan seksama sebelum menyentuh kode apa pun!
 
 ---
 
-## 2. PANDUAN DEPLOYMENT (UNTUK SERVER GCP BARU)
+## 1. TOPOLOGI & ARSITEKTUR UTAMA
+Aplikasi ini tidak menggunakan kerangka modern (React/Next/Kubernates). Arsitekturnya difokuskan pada prinsip **"Super Cerdas tapi Sangat Ringan" (Lean & Smart)**.
 
-Jika aplikasi ini mau dipindah ke server IP baru, berikut langkah kerjanya:
+- **Kategori**: Monolithic Single Page Application (SPA) + Telegram Daemon.
+- **Frontend Utama**: Vanilla HTML, CSS Variables, dan ES12+ JavaScript (`public/app.js`). Routing halaman memakai trik *Hash-Routing* (`/#dashboard`) tanpa *reload*.
+- **Backend Router**: Express.js. API berhulu di `/api/*`. Tidak ada Pustaka ORM (Object-Relational Mapping).
+- **Mesin AI**: Google Gemini 2.5 Flash (`@google/generative-ai`), yang memonopoli perutean bahasa manusia & gambar (*Computer Vision*).
+- **Proses Background (PM2)**: Server Node.js tidak hanya melayani HTTP Express, tapi juga memutar benang asinkron (*polling*) ke API Telegram melalui modul bawaan di dalam mesin yang sama.
 
-### A. Persiapan File
-1. Pindahkan seluruh source-code folder `family smart money/` ke server baru.
-2. (Pastikan Node.js v22+ sudah ter-instal di server baru).
+---
 
-### B. Konfigurasi Background Service (Windows)
-Jangan jalankan aplikasi dengan `node server.js` biasa karena akan mati saat RDP (Remote) ditutup. Gunakan sistem **PM2**.
-Buka PowerShell Administrator dan jalankan:
-```powershell
-# 1. Install PM2 dan Module Auto-Startup Windows
-npm install -g pm2
-npm install -g pm2-windows-startup
+## 2. ANATOMI DATABASE (NATIVE NODE:SQLITE)
+**PERHATIAN KRITIS UNTUK AI SELANJUTNYA:**
+Kami TIDAK memakai `better-sqlite3` karena sering gagal *build/compile* C++ di lingkungan virtual (VDS/Cloud). Kami mutlak memakai API bawaan node.js: `require('node:sqlite')`. 
+- Pustaka `node:sqlite` **tidak** memiliki fungsi bawaan `db.transaction(() => {})`.
+- Saat Anda (AI) menulis kode Bulk-Insert, WAJIB menggunakan pembungkus manual: `db.exec('BEGIN'); ... db.exec('COMMIT');`
 
-# 2. Registrasi Autorun (Startup)
-pm2-startup install
+### Skema Tabel Aktif (FSM.db):
+1. **transactions**:
+   - `id` (INTEGER PK)
+   - `type` (TEXT 'income'/'expense')
+   - `amount` (REAL)
+   - `category_id` (INTEGER, Opsional)
+   - `description` (TEXT)
+   - `recorded_by` (TEXT, misal: 'User' / 'Telegram Bot' / 'WA Bot')
+   - `date` (TEXT 'YYYY-MM-DD')
+2. **categories**: `id, name, type, icon, is_default, is_active`.
+3. **settings**: Key-Value minimal untuk konfigurasi umum.
 
-# 3. Jalankan Aplikasi
-cd "C:\path\ke\folder\family smart money"
-npm install
-pm2 start server.js --name "fsm-app"
+---
 
-# 4. Simpan kondisi hidup permanen
-pm2 save
+## 3. ENGINE ARTIFICIAL INTELLIGENCE (GEMINI V2.5)
+Integrasi Gemini berada pada titik `/routes/ai.js` (Untuk klien Web) dan `telegram-bot.js` (Untuk klien Mobile).
+
+**A. Masalah Windows System Variables (WAJIB INGAT)**
+Karena aplikasi dideploy di Windows Server GCP, pembacaan `process.env.GEMINI_API_KEY` sering nyangkut/tertipu memori lokal Windows. **Solusi Sakti**: File `.env` dibaca paksa secara I/O murni menggunakan `fs.readFileSync('.env')` dengan Regex saat AI diinisiasi. JANGAN hapus logika *bypass* ini atau "API Key Expired" akan terulang!
+
+**B. Mode Prompting (JSON Strict Mode)**
+Semua panggilan AI disetel menggunakan `generationConfig: { responseMimeType: "application/json" }`. AI "ditekan" dengan *zero-shot prompt* untuk merestrukturisasi kalimat acak menjadi *Array object* standar dengan properti baku: `type`, `amount`, dan `description`.
+
+---
+
+## 4. MESIN INTERAKTIF TELEGRAM (TELEGRAM-BOT.JS)
+Ini adalah permata dari aplikasi ini. Bot berjalan atas mode *Long-Polling* (`bot.on('message')`).
+
+**A. Skema Pembacaan Gambar (Vision)**
+Jika `msg.photo` tertangkap, bot akan mengunduh gambar murni dari URL API internal Telegram, merubah array buffer ke *Base64*, lalu menyuntikkannya ke *InlineData* Gemini untuk parsing Struk Belanja Kasir secara optikal.
+
+**B. Mekanika State Management (Interactive Keyboards)**
+Sistem menolak meng-*insert* tebakan AI secara membabi buta.
+1. Output AI disimpan sebentar di peta memori: `const pendingTransactions = new Map();` (Key: ID Obrolan unik).
+2. Bot memaparkan draf ke layar user beserta merakit `reply_markup` berisi *Inline Keyboards*.
+3. Event pendengar `bot.on('callback_query')` menangkap klik balasan.
+   - `CONFIRM_YES` -> Eksekusi List di memori *Map* ke dalam SQLite. Map dihapus.
+   - `CONFIRM_NO` -> Map dihancurkan tanpa jejak.
+
+---
+
+## 5. STRUKTUR DEPENDENSI & .ENV
+**Package.json Requirements:**
+- `express`, `multer` (Upload File Web)
+- `node-telegram-bot-api` (Mesin Komunikasi Chatbot)
+- `@google/generative-ai` (Nervous System)
+- `dotenv` (Versi 16, versi bawah yang tidak me-*lock* caching enkripsi agar bypass kita jalan).
+
+**Format .env Mutlak:**
+```ini
+GEMINI_API_KEY=AIzA...
+TELEGRAM_BOT_TOKEN=123456...
 ```
 
-### C. Pembukaan Pintu Firewall (WAJIB DUA LAPIS)
-Server Windows di cloud memiliki 2 penjaga pintu ganda (Port 3000):
-1. **Firewall Internal Windows Server**
-   - Buka PowerShell Administrator: 
-   - `New-NetFirewallRule -DisplayName "FSM Port 3000" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow`
-2. **Firewall Eksternal GCP VPC**
-   - Buka Portal Cloud GCP -> VPC Network -> Firewall
-   - Buat baru (`allow-fsm-3000`)
-   - Source IP: `0.0.0.0/0`
-   - TCP port: `3000`
+**Kunci Deployment PM2:**
+```bash
+# Wajib dieksekusi setiap ada perombakan .env
+pm2 restart fsm-app --update-env
+```
 
 ---
-
-## 3. SEJARAH PENYELESAIAN MASALAH (TROUBLESHOOTING LOG)
-
-Selama proses pembuatan dan perbaikan aplikasi di server Windows saat ini, ada **3 kendala utama** yang telah diselesaikan. Ini dicatat agar tidak membingungkan programmer selanjutnya:
-
-### ❗️ Masalah 1: Gagal Instalasi Database Binary di Windows Server
-- **Kasus:** Menginstal library database SQLite ternama (`better-sqlite3`) secara konstan gagal karena membutuhkan sistem *build-tools* Python & Visual Studio C++. Di server virtual cloud, instalasi hal berat seperti C++ sangat merepotkan.
-- **Solusi:** Modul `better-sqlite3` **dibuang** dan diganti menggunakan `node:sqlite`. Ini adalah API SQLite built-in bawaan murni yang baru ditambahkan langsung ke dalam mesin bundel Node.js v22.5+. **Zero configuration & Tidak butuh proses build C++!**.
-
-### ❗️ Masalah 2: Error Syntax SQL "strftime()" di Database node:sqlite
-- **Kasus:** Saat menampilkan filter / grafik bulan lalu, indikator saldo macet (`SQL logic error`).
-- **Penyebab:** Pada database lama, kode `strftime("%m", date)` tidak ada masalah. Tapi `node:sqlite` mengadaptasi keamanan SQL (parser) yang **jauh lebih ketat**. Tanda petik ganda (`"`) dianggap nama kolom, BUKAN teks/string.
-- **Solusi:** Di file `transactions.js`, seluruh blok format bulan/tanggal diubah secara absolut menggunakan kutipan tunggal (Single-Quote): diubah murni menjadi `strftime('%m', date)`. Data langsung termuat sempurna secara instan.
-
-### ❗️ Masalah 3: Fitur Backup / Fitur Reset Data tidak Berjalan
-- **Kasus:** Pengguna mencoba mereset keseluruhan data di pengaturan tapi fitur me-return Error Server.
-- **Penyebab:** Framework sebelumnya menggunakan `db.transaction(() => { ... })` sebagai *wrapper* database. Tetapi API bawaan dari `node:sqlite` (Node.js internal API) memiliki ekosistem _transaction_ yang berbeda.
-- **Solusi:** Semua fungsi Bulk-Insert / Eksekusi Massal (Reset dan Restore/Import JSON), ditimpa menjadi kode SQL konvensional yang absolut solid:
-  1. `db.exec('BEGIN');` *(Dimulai/Kunci Tabel)*
-  2. *(Eksekusi Hapus Semua Data)*
-  3. `db.exec('COMMIT');` *(Simpan Perubahan, Berhasil)* atau `db.exec('ROLLBACK')` jika error.
-
-### ❗️ Tambahan: Integrasi Sistem Login Cepat (No-Password)
-- **Inisiatif Pengembangan:** Sistem `Auth` dibangun sebagai pelindung layar utama `index.html`.
-- **Mekanisme Otomatisasi Session:**
-  - Login mengandalkan kecocokan absolut **Nama Lengkap & Email**.
-  - Email akan dilacak di DB lokal, jika format ditemukan, sistem akan memvalidasi nama pengguna secara case-insensitive (menghindari nama tertukar dengan kerabat lain). Jika cocok -> *Welcome Back!*
-  - Data Login diikat di browser Cache/`localStorage`. Karena ini sistem Web App (PWA), token akan menetap permanen sampai pengguna secara sukarela mengklik opsi "Logout" di tab pengaturan. 
-
----
-
-## 4. INTEGRASI AI (SMART RECEIPT SCANNER)
-
-Aplikasi memiliki fitur super premium yaitu *AI Smart Receipt* yang dapat mengekstrak daftar belanjaan menggunakan *Google Gemini Vision API*.
-
-### A. Arsitektur AI
-- **Model**: `gemini-2.5-flash` (Update: `1.5-flash` sudah di-deprecate oleh Google pada 2026).
-- **SDK**: Memanfaatkan pustaka resmi `@google/generative-ai` versi terbaru pada backend (`routes/ai.js`).
-- **Prompting**: AI diinstruksikan dengan sangat ketat (Zero-shot) untuk HANYA merespons dalam format Array JSON yang berisikan `storeName` dan himpunan `items[name, price]`.
-
-### B. Manajement API Key (.ENV)
-**Ini adalah mekanisme paling krusial yang perlu diperhatikan:**
-- File `.env` diletakkan di root server. Jika API Key expired, generate baru melalui jalur [Google AI Studio](https://aistudio.google.com/app/apikey).
-- API Key Gemini 100% selalu berawalan huruf `AIza...`. Jangan terkecoh dengan format token Google Cloud yang berawalan `AQ...` atau OAuth token lainnya.
-- **PENTING: Masalah Windows System Variables**
-  Server Windows (terutama yang dieksekusi via PowerShell PM2) memiliki rekam jejak lingkungan (System Variables) tersendiri. Pada satu kasus, *Environment Variable* tingkat OS Windows menimpa terus nilai dari file `.env` dan menyebabkan "API Key Expired" Error meski `.env` sudah diupdate.
-  - **Solusi**: Di `routes/ai.js`, pemanggilan tidak murni mengandalkan `process.env.GEMINI_API_KEY`. Kami mem-bypassnya dengan metode pembacaan manual `fs.readFileSync('.env')` untuk menghindari nilai lawas yang menempel permanen di Windows.
-- Setiap ganti API Key, matikan/restart total melalui PM2: `pm2 restart fsm-app --update-env`.
-
-### C. Alur Kerja (Workaround) UI Frontend Dinamis
-Demi **menjaga struktur murni Database SQLite agar tidak berubah (tetap 1 baris input transaksi)**, ekstrak daftar belanja dari AI tidak dibuatkan/di-insert ke tabel baru di database, melainkan dirombak di sisi JavaScript Antarmuka Layar (UI) *Device* pengguna:
-1. Keranjang Belanja Dinamis akan dilahirkan ke udara secara real-time via `document.createElement()`.
-2. Pengguna bebas mengedit harga/nominal/hapus barang satu persatu *(Review phase)*. JavaScript `window.syncAiToForm()` akan melakukan agregat perhitungan dinamis di latar belakang tanpa me-*refresh* DOM page utama.
-3. Begitu diklik "Simpan", JavaScript akan memilin/merajut data Array Object belanja tersebut menjadi *String* vertikal dengan poin-poin/list teks *(bullet-points)* yang dicocokkan ke dalam kolom Keterangan/Deskripsi standar. Sistem *Single Table* tetap awet 100% tanpa relasi *(ForeignKey)* berlapis.
-
----
-**Status Aplikasi Terkini**: _STABLE_, _PRODUCTION-READY_, BERJALAN MELALUI _PM2_ SECARA PERMANEN (BACKGROUND-LOCKED), DENGAN FITUR ARTIFICIAL INTELLIGENCE MENYALA.
+*Blueprint ini diciptakan pada 17 April 2026. Semoga kekuatan arsitektur tanpa cela ini menemani Anda, Kawan AI, dalam fase pengembangan selanjutnya.*
